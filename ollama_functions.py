@@ -23,7 +23,7 @@ class Ollama():
         
     def load_embeddings(self, filepath):
         if os.path.exists(filepath):
-            return torch.load(filepath)
+            return torch.load(filepath, weights_only=False)
         return None
     
     def get_vault_content(self):
@@ -87,9 +87,8 @@ class Ollama():
         rewritten_query = response.choices[0].message.content.strip()
         return json.dumps({"Rewritten Query": rewritten_query})
     
-    def ollama_chat(self, user_input):
-        self.conversation_history.append({"role": "user", "content": user_input})
-        
+    
+    def get_rewritten_query(self, user_input):
         if len(self.conversation_history) > 1:
             query_json = {
                 "Query": user_input,
@@ -100,7 +99,27 @@ class Ollama():
             rewritten_query = rewritten_query_data["Rewritten Query"]
         else:
             rewritten_query = user_input
+        return rewritten_query
+    
+    def ask_ollama(self):
+        messages = [
+            {"role": "system", "content": self.system_message},
+            *self.conversation_history
+        ]
         
+        response = self.client.chat.completions.create(
+            model=self.ollama_model,
+            messages=messages,
+            max_tokens=2000,
+        )
+        
+        self.conversation_history.append({"role": "assistant", "content": response.choices[0].message.content})
+        
+        return response.choices[0].message.content
+        
+    def ollama_chat(self, user_input):
+        self.conversation_history.append({"role": "user", "content": user_input})
+        rewritten_query = self.get_rewritten_query(user_input)
         relevant_context = self.get_relevant_context(rewritten_query)
         if relevant_context:
             context_str = "\n".join(relevant_context)
@@ -111,48 +130,11 @@ class Ollama():
         
         self.conversation_history[-1]["content"] = user_input_with_context
         
-        messages = [
-            {"role": "system", "content": self.system_message},
-            *self.conversation_history
-        ]
-        
-        response = self.client.chat.completions.create(
-            model=self.ollama_model,
-            messages=messages,
-            max_tokens=2000,
-        )
-        
-        self.conversation_history.append({"role": "assistant", "content": response.choices[0].message.content})
-        
-        return response.choices[0].message.content
+        return self.ask_ollama()
     
     def ollama_no_rag_chat(self, user_input):
         self.conversation_history.append({"role": "user", "content": user_input})
-
-        if len(self.conversation_history) > 1:
-            query_json = {
-                "Query": user_input,
-                "Rewritten Query": ""
-            }
-            rewritten_query_json = self.rewrite_query(json.dumps(query_json))
-            rewritten_query_data = json.loads(rewritten_query_json)
-            rewritten_query = rewritten_query_data["Rewritten Query"]
-        else:
-            rewritten_query = user_input
-            
+        rewritten_query = self.get_rewritten_query(user_input)
         self.conversation_history[-1]["content"] = rewritten_query
         
-        messages = [
-            {"role": "system", "content": self.system_message},
-            *self.conversation_history
-        ]
-        
-        response = self.client.chat.completions.create(
-            model=self.ollama_model,
-            messages=messages,
-            max_tokens=2000,
-        )
-        
-        self.conversation_history.append({"role": "assistant", "content": response.choices[0].message.content})
-        
-        return response.choices[0].message.content
+        return self.ask_ollama()

@@ -23,7 +23,7 @@ class Ollama():
         
     def _load_embeddings(self, filepath):
         if os.path.exists(filepath):
-            return torch.load(filepath, weights_only=False)
+            return torch.load(filepath, weights_only=True)
         return None
     
     def _load_vault_content(self):
@@ -37,7 +37,7 @@ class Ollama():
         return response["embedding"]
     
     def _get_vault_embeddings(self):
-        embeddings = self._load_embeddings()
+        embeddings = self._load_embeddings(self.embeddings_file)
         if embeddings is None:
             embeddings = [
                 self._generate_embeddings(content) for content in self.vault_content
@@ -49,8 +49,10 @@ class Ollama():
     
     def _get_relevant_context(self, rewritten_input, top_k=3):
         vault_embeddings = self._get_vault_embeddings()
-        if vault_embeddings.nelement() == 0:
-            return []
+        if vault_embeddings is None or vault_embeddings.nelement() == 0:
+            if not self.vault_content:
+                print("Vault content is empty. No embeddings to generate.")
+                return torch.empty((0, 1024))
         input_embedding = torch.tensor(
             self._generate_embeddings(rewritten_input)
         ).unsqueeze(0)
@@ -111,17 +113,18 @@ class Ollama():
     
     def ollama_chat(self, user_input):
         self.conversation_history.append({"role": "user", "content": user_input})
+        relevant_context = self._get_relevant_context(user_input)
         rewritten_query = self._get_rewritten_query(user_input)
-        relevant_context = self._get_relevant_context(rewritten_query)
 
         if relevant_context:
             context_str = "\n".join(relevant_context)
-            user_input += f"\n\nRelevant Context:\n{context_str}"
+            rewritten_query += f"\n\nRelevant Context:\n{context_str}"
 
         self.conversation_history[-1]["content"] = user_input
         return self._ask_ollama()
     
     def ollama_no_rag_chat(self, user_input):
+        user_input.replace("--NORAG", "")
         self.conversation_history.append({"role": "user", "content": user_input})
         rewritten_query = self._get_rewritten_query(user_input)
         self.conversation_history[-1]["content"] = rewritten_query

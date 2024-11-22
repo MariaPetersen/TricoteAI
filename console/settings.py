@@ -43,7 +43,7 @@ class AISettings():
         self.console.print("[1] Bergere France - Knitting basics")
         self.console.print("[2] University of Kentucky - Beginning knitting")
         self.console.print("[3] No")
-        choice = Prompt.ask("Enter the number of your choice", choices=["1", "2"])
+        choice = Prompt.ask("Enter the number of your choice", choices=["1", "2", "3"])
         if choice == "1":
             self._set_file_id("188r6xcoIUYk9W6wJiHyfVRCGyJPFQiLu", "Bergere France - Knitting basics")
         if choice == "2":

@@ -18,6 +18,7 @@ if __name__ == "__main__":
 
     ollama_class = Ollama(args.model)
     ai_settings = AISettings()
+    processor = PDFProcessor()
     
     while True:
         ai_settings.ask_temperature()
@@ -27,10 +28,8 @@ if __name__ == "__main__":
         if user_input.lower() == 'quit':
             break
         if ai_settings.file_id:
-            processor = PDFProcessor(ai_settings.file_id)
-            if not processor.check_existing_pdf():
-                processor.process_pdf()
-            response = ollama_class.ollama_chat(user_input, temperature)
+            processor.process_pdf(ai_settings.file_id)
+            response = ollama_class.ollama_chat(user_input, temperature, ai_settings.file_id)
         else:
             print(CYAN + "Answering your question without using a RAG" + RESET_COLOR)
             response = ollama_class.ollama_no_rag_chat(user_input, temperature)

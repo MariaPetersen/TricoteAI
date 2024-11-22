@@ -3,13 +3,11 @@ import os
 import ollama
 import json
 from openai import OpenAI
-from constants.colors import PINK, CYAN, YELLOW, NEON_GREEN, RESET_COLOR
+from constants.colors import CYAN, RESET_COLOR
 
 class Ollama():
-    def __init__(self, ollama_model, embeddings_file=None, vault_file=None, api_key="llama3"):
+    def __init__(self, ollama_model, api_key="llama3"):
         self.model_url = "http://localhost:11434/v1"
-        self.embeddings_file = embeddings_file or os.path.join("data", "vault_embeddings.pt")
-        self.vault_file = vault_file or os.path.join("data", "vault.txt")
         self.ollama_model = ollama_model
         self.client = OpenAI(base_url=self.model_url, api_key=api_key)
         self.system_message = (
@@ -19,19 +17,23 @@ class Ollama():
             information as possible from that context in you answer."""
         )
         self.conversation_history = []
-        self.vault_content = self._load_vault_content()
+        self.vault_content = None
+        self.file_id = None
         
-    def _save_embeddings(self, embeddings, filepath):
-        torch.save(embeddings, filepath)
+    def _save_embeddings(self, embeddings):
+        embeddings_file = os.path.join("data", f"{self.file_id}_embeddings.pt")
+        torch.save(embeddings, embeddings_file)
         
-    def _load_embeddings(self, filepath):
-        if os.path.exists(filepath):
-            return torch.load(filepath, weights_only=True)
+    def _load_embeddings(self):
+        embeddings_file = os.path.join("data", f"{self.file_id}_embeddings.pt")
+        if os.path.exists(embeddings_file):
+            return torch.load(embeddings_file, weights_only=True)
         return None
     
     def _load_vault_content(self):
-        if os.path.exists(self.vault_file):
-            with open(self.vault_file, "r", encoding="utf-8") as file:
+        vault_file = os.path.join("data", f"{self.file_id}.txt")
+        if os.path.exists(vault_file):
+            with open(vault_file, "r", encoding="utf-8") as file:
                 return file.readlines()
         return []
     
@@ -40,8 +42,9 @@ class Ollama():
         return response["embedding"]
     
     def _get_vault_embeddings(self):
-        embeddings = self._load_embeddings(self.embeddings_file)
+        embeddings = self._load_embeddings()
         if embeddings is None:
+            print(CYAN + "Give me a moment to analyze the new text..." + RESET_COLOR)
             embeddings = [
                 self._generate_embeddings(content) for content in self.vault_content
             ]
@@ -89,7 +92,6 @@ class Ollama():
             n=1,
             temperature=0.1,
         )
-        print("rewrittine queury ", response.choices[0].message.content.strip())
         return json.dumps({"Rewritten Query": response.choices[0].message.content.strip()})
     
     def _get_rewritten_query(self, user_input):
@@ -112,7 +114,9 @@ class Ollama():
         self.conversation_history.append({"role": "assistant", "content": assistant_message})
         return assistant_message
     
-    def ollama_chat(self, user_input, temperature):
+    def ollama_chat(self, user_input, temperature, file_id):
+        self.file_id = file_id
+        self.vault_content = self._load_vault_content()
         self.conversation_history.append({"role": "user", "content": user_input})
         rewritten_query = self._get_rewritten_query(user_input)
         relevant_context = self._get_relevant_context(rewritten_query)
@@ -121,7 +125,6 @@ class Ollama():
             context_str = "\n".join(relevant_context)
             print(CYAN + "Context: " + context_str + RESET_COLOR)
             rewritten_query += f"\n\nRelevant Context:\n{context_str}"
-            
 
         self.conversation_history[-1]["content"] = rewritten_query
         return self._ask_ollama(temperature)

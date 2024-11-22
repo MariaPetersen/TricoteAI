@@ -1,3 +1,4 @@
 .tricoteai
 .env
 /data
+__pycache__

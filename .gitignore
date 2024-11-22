@@ -1,5 +1,3 @@
 .tricoteai
 .env
-output.pdf
-vault_embeddings.pt
-vault.txt
+/data

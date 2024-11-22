@@ -76,6 +76,7 @@ class PDFProcessor:
         if self.file_id == file_id:
             return
         self.file_id = file_id
+        os.makedirs("data", exist_ok=True)
         self.output_file = os.path.join("data", f"{file_id}.pdf")
         self.vault_file = os.path.join("data", f"{file_id}.txt")
         if not self._check_existing_pdf():

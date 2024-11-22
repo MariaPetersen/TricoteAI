@@ -9,13 +9,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Ollama Chat")
     parser.add_argument("--model", default="llama3.2", help="Ollama model to use (default: llama3.2)")
     args = parser.parse_args()
-    temperature = 0.3
     
-    def set_temperature(value):
-        global temperature
-        temperature = value
-        print(PINK + f"Temperature set to: {temperature}" + RESET_COLOR)
-
     ollama_class = Ollama(args.model)
     ai_settings = AISettings()
     processor = PDFProcessor()
@@ -29,9 +23,9 @@ if __name__ == "__main__":
             break
         if ai_settings.file_id:
             processor.process_pdf(ai_settings.file_id)
-            response = ollama_class.ollama_chat(user_input, temperature, ai_settings.file_id)
+            response = ollama_class.ollama_chat(user_input, ai_settings.temperature, ai_settings.file_id)
         else:
             print(CYAN + "Answering your question without using a RAG" + RESET_COLOR)
-            response = ollama_class.ollama_no_rag_chat(user_input, temperature)
+            response = ollama_class.ollama_no_rag_chat(user_input, ai_settings.temperature)
             
         print(NEON_GREEN + "Response: \n\n" + response + RESET_COLOR)
